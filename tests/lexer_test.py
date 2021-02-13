@@ -27,6 +27,7 @@ class TestLexer(unittest.TestCase):
         
         10 == 10;
         10 != 9;
+        result = null;
             """
         )
 
@@ -103,6 +104,10 @@ class TestLexer(unittest.TestCase):
             Token(TokenType.INT, "10"),
             Token(TokenType.NOT_EQ, "!="),
             Token(TokenType.INT, "9"),
+            Token(TokenType.SEMICOLON, ";"),
+            Token(TokenType.IDENT, "result"),
+            Token(TokenType.ASSIGN, "="),
+            Token(TokenType.NULL, "null"),
             Token(TokenType.SEMICOLON, ";"),
         ]
         for expected_token in expected_tokens:

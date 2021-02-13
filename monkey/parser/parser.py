@@ -7,6 +7,12 @@ from monkey.ast.ast import (
     IntegerLiteral,
     PrefixExpression,
     InfixExpression,
+    Boolean,
+    IfExpression,
+    BlockStatement,
+    FunctionLiteral,
+    CallExpression,
+    NullLiteral,
 )
 
 from monkey.tok.tok import TokenType
@@ -45,13 +51,20 @@ class Parser:
             TokenType.MINUS: Precedence.SUM,
             TokenType.SLASH: Precedence.PRODUCT,
             TokenType.ASTERISK: Precedence.PRODUCT,
+            TokenType.LPAREN: Precedence.CALL,
         }
 
         # register prefix tokens
         self.register_prefix_function(TokenType.IDENT, self.parse_identifier)
+        self.register_prefix_function(TokenType.NULL, self.parse_null_literal)
         self.register_prefix_function(TokenType.INT, self.parse_integer_literal)
         self.register_prefix_function(TokenType.BANG, self.parse_prefix_expression)
         self.register_prefix_function(TokenType.MINUS, self.parse_prefix_expression)
+        self.register_prefix_function(TokenType.TRUE, self.parse_boolean)
+        self.register_prefix_function(TokenType.FALSE, self.parse_boolean)
+        self.register_prefix_function(TokenType.LPAREN, self.parse_grouped_expression)
+        self.register_prefix_function(TokenType.IF, self.parse_if_expression)
+        self.register_prefix_function(TokenType.FUNCTION, self.parse_function_literal)
 
         # register infix tokens
         self.register_infix_function(TokenType.PLUS, self.parse_infix_expression)
@@ -62,6 +75,7 @@ class Parser:
         self.register_infix_function(TokenType.NOT_EQ, self.parse_infix_expression)
         self.register_infix_function(TokenType.LT, self.parse_infix_expression)
         self.register_infix_function(TokenType.GT, self.parse_infix_expression)
+        self.register_infix_function(TokenType.LPAREN, self.parse_call_expression)
 
         # set the current and peek token
         self.next_token()
@@ -91,31 +105,39 @@ class Parser:
             return self.parse_expression_statement()
 
     def parse_let_statement(self):
-        stmt = LetStatement(self.cur_token)
+        stmt = LetStatement(token=self.cur_token)
 
         if not self.expect_peek(TokenType.IDENT):
             return None
 
-        stmt.name = Identifier(self.cur_token, self.cur_token.literal)
+        stmt.name = Identifier(
+            token=self.cur_token,
+            value=self.cur_token.literal,
+        )
 
         if not self.expect_peek(TokenType.ASSIGN):
             return None
 
-        # TODO: We're skipping the expressions until we encounter a semicolon
-        while not self.cur_token_is(TokenType.SEMICOLON):
+        self.next_token()
+
+        stmt.value = self.parse_expression(Precedence.LOWEST)
+
+        if self.peek_token_is(TokenType.SEMICOLON):
             self.next_token()
 
         return stmt
 
     def parse_return_statement(self):
-        return_stmt = ReturnStatement(token=self.cur_token)
+        stmt = ReturnStatement(token=self.cur_token)
 
         self.next_token()  # eat RETURN token
 
-        while not self.cur_token_is(TokenType.SEMICOLON):
-            self.next_token()  # skip expressions for now.
+        stmt.return_value = self.parse_expression(Precedence.LOWEST)
 
-        return return_stmt
+        if self.peek_token_is(TokenType.SEMICOLON):
+            self.next_token()
+
+        return stmt
 
     def parse_expression_statement(self):
         stmt = ExpressionStatement(token=self.cur_token)
@@ -136,7 +158,9 @@ class Parser:
 
         left_exp = prefix()
 
-        while not self.peek_token_is(TokenType.SEMICOLON) and int(precedence.value[0]) < self.peek_precedence():
+        while not self.peek_token_is(TokenType.SEMICOLON) and \
+                int(precedence.value[0]) < int(self.peek_precedence().value[0]):
+
             infix = self.infix_parse_fns.get(self.peek_token.type)
             if infix is None:
                 return left_exp
@@ -145,23 +169,7 @@ class Parser:
 
             left_exp = infix(left_exp)
 
-        # TODO: implement here the posfix operators.
-
         return left_exp
-
-    def parse_identifier(self):
-        return Identifier(token=self.cur_token, value=self.cur_token.literal)
-
-    def parse_integer_literal(self):
-        lit = IntegerLiteral(token=self.cur_token)
-
-        value = int(self.cur_token.literal)
-        lit.value = value
-
-        return lit
-
-    def cur_token_is(self, t):
-        return self.cur_token.type == t
 
     def parse_prefix_expression(self):
         expression = PrefixExpression(token=self.cur_token, operator=self.cur_token.literal)
@@ -184,6 +192,143 @@ class Parser:
 
         return expression
 
+    def parse_grouped_expression(self):
+        self.next_token()  # advance the LPAREN token.
+
+        exp = self.parse_expression(Precedence.LOWEST)
+
+        if not self.expect_peek(TokenType.RPAREN):
+            return None
+
+        return exp
+
+    def parse_if_expression(self):
+        expression = IfExpression(token=self.cur_token)
+
+        if not self.expect_peek(TokenType.LPAREN):
+            return None
+
+        self.next_token()  # Advance the LPAREN token.
+
+        expression.condition = self.parse_expression(Precedence.LOWEST)
+
+        if not self.expect_peek(TokenType.RPAREN):
+            return None
+
+        if not self.expect_peek(TokenType.LBRACE):
+            return None
+
+        expression.consequence = self.parse_block_statement()
+
+        if self.peek_token_is(TokenType.ELSE):
+            self.next_token()  # advances the tokens ans sits on ELSE
+
+            if not self.expect_peek(TokenType.LBRACE):
+                return None
+
+            expression.alternative = self.parse_block_statement()
+
+        return expression
+
+    def parse_block_statement(self):
+        block = BlockStatement(token=self.cur_token)
+        self.next_token()  # advance the LBRACE token
+
+        while not self.cur_token_is(TokenType.RBRACE) and not self.cur_token_is(TokenType.EOF):
+            stmt = self.parse_statement()
+            if stmt is not None:
+                block.statements.append(stmt)
+            self.next_token()
+
+        return block
+
+    def parse_identifier(self):
+        return Identifier(token=self.cur_token, value=self.cur_token.literal)
+
+    def parse_null_literal(self):
+        return NullLiteral(token=self.cur_token)
+
+    def parse_integer_literal(self):
+        lit = IntegerLiteral(token=self.cur_token)
+
+        value = int(self.cur_token.literal)
+        lit.value = value
+
+        return lit
+
+    def parse_boolean(self):
+        return Boolean(
+            token=self.cur_token,
+            value=self.cur_token_is(TokenType.TRUE)
+        )
+
+    def parse_function_literal(self):
+        lit = FunctionLiteral(token=self.cur_token)
+
+        if not self.expect_peek(TokenType.LPAREN):  # match peek LPAREN token and advance.
+            return None
+
+        lit.parameters = self.parse_function_parameters()
+
+        if not self.expect_peek(TokenType.LBRACE): # match peek LBRACE token and advance.
+            return None
+
+        lit.body = self.parse_block_statement()
+
+        return lit
+
+    def parse_function_parameters(self):
+        identifiers = []
+
+        if self.peek_token_is(TokenType.RPAREN):
+            self.next_token()  # advance the tokens
+            return identifiers
+
+        self.next_token()
+
+        ident = Identifier(token=self.cur_token, value=self.cur_token.literal)
+        identifiers.append(ident)
+
+        while self.peek_token_is(TokenType.COMMA):
+            self.next_token()  # advance and sit on COMMA
+            self.next_token()  # advance and sit on IDENT
+            ident = Identifier(token=self.cur_token, value=self.cur_token.literal)
+            identifiers.append(ident)
+
+        if not self.expect_peek(TokenType.RPAREN):
+            return None
+
+        return identifiers
+
+    def parse_call_expression(self, function):
+        exp = CallExpression(token=self.cur_token)
+        exp.function = function
+        exp.arguments = self.parse_call_arguments()
+        return exp
+
+    def parse_call_arguments(self):
+        args = []
+
+        if self.peek_token_is(TokenType.RPAREN):
+            self.next_token()
+            return args
+
+        self.next_token()
+        args.append(self.parse_expression(Precedence.LOWEST))
+
+        while self.peek_token_is(TokenType.COMMA):
+            self.next_token()  # advance and sits on COMMA
+            self.next_token()  # advance the COMMA
+            args.append(self.parse_expression(Precedence.LOWEST))
+
+        if not self.expect_peek(TokenType.RPAREN):
+            return None
+
+        return args
+
+    def cur_token_is(self, t):
+        return self.cur_token.type == t
+
     def peek_token_is(self, t):
         return self.peek_token.type == t
 
@@ -196,19 +341,19 @@ class Parser:
             return False
 
     def peek_error(self, t):
-        msg = f'expected next token to be {t}, got {self.peek_token.type}'
+        msg = f'expected next token to be {t}, got {self.peek_token.type} instead'
         self.errors.append(msg)
 
     def peek_precedence(self):
         p = self.precedence.get(self.peek_token.type)
-        return int(p.value[0]) if p is not None else int(Precedence.LOWEST.value[0])
+        return p if p is not None else Precedence.LOWEST
 
     def cur_precedence(self):
         p = self.precedence.get(self.cur_token.type)
         return p if p is not None else Precedence.LOWEST
 
     def no_prefix_parse_fn_error(self, t):
-        msg = f'no prefix parse function for {t}'
+        msg = f'no prefix parse function for {t} found'
         self.errors.append(msg)
 
     # pratt parser functions helpers
@@ -217,4 +362,3 @@ class Parser:
 
     def register_infix_function(self, token_type, infix_function):
         self.infix_parse_fns[token_type] = infix_function
-

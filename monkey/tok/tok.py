@@ -40,6 +40,7 @@ class TokenType(Enum):
     IF = 'if'
     ELSE = 'else'
     RETURN = 'return'
+    NULL = 'null'
 
 
 class Token:
@@ -64,7 +65,8 @@ keywords = {
     "false": TokenType.FALSE,
     "if": TokenType.IF,
     "else": TokenType.ELSE,
-    "return": TokenType.RETURN
+    "return": TokenType.RETURN,
+    "null": TokenType.NULL,
 }
 
 
