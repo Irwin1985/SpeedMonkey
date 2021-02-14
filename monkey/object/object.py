@@ -5,7 +5,7 @@ class Type(Enum):
     INTEGER_OBJ = "INTEGER",
     BOOLEAN_OBJ = "BOOLEAN",
     NULL_OBJ = "NULL",
-
+    RETURN_VALUE_OBJ = "RETURN_VALUE"
 
 class ObjectType:
     pass
@@ -50,6 +50,18 @@ class Null(Object):
 
     def type(self):
         return Type.NULL_OBJ
+
+
+class ReturnValue(Object):
+    def __init__(self, value):
+        self.value = value
+
+    def inspect(self):
+        return self.value.inspect()
+
+    def type(self):
+        return Type.RETURN_VALUE_OBJ
+
 
 
 

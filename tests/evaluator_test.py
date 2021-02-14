@@ -2,7 +2,7 @@ import unittest
 
 from monkey.lexer.lexer import Lexer
 from monkey.parser.parser import Parser
-from monkey.evaluator.evaluator import Evaluator
+from monkey.evaluator.evaluator import Evaluator, NULL
 from monkey.object.object import (
     Integer,
     Boolean,
@@ -11,6 +11,41 @@ from monkey.object.object import (
 
 
 class TestEvaluador(unittest.TestCase):
+
+    def test_return_statements(self):
+        tests = [
+            ["return 10;", 10],
+            ["return 10; 9;", 10],
+            ["return 2 * 5; 9;", 10],
+            ["9; return 2 * 5; 9;", 10],
+            ["if (10 > 1) { if (10 > 1) { return 10;} return 1}", 10],
+        ]
+        for tt in tests:
+            source = tt[0]
+            expected = tt[1]
+            evaluated = self.assert_test_eval(source)
+            self.assert_test_integer_object(evaluated, expected)
+
+    def test_if_else_expressions(self):
+        tests = [
+            ["if (true) { 10 }", 10],
+            ["if (false) { 10 }", None],
+            ["if (1) { 10 }", 10],
+            ["if (1 < 2) { 10 }", 10],
+            ["if (1 > 2) { 10 }", None],
+            ["if (1 > 2) { 10 } else { 20 }", 20],
+            ["if (1 < 2) { 10 } else { 20 }", 10],
+        ]
+        for tt in tests:
+            source = tt[0]
+            expected = tt[1]
+            evaluated = self.assert_test_eval(source)
+            integer = expected
+            if type(integer) is int:
+                self.assert_test_integer_object(evaluated, int(integer))
+            else:
+                self.assert_test_null_object(evaluated)
+
     def test_bang_operator(self):
         tests = [
             ["!true", False],
@@ -38,12 +73,9 @@ class TestEvaluador(unittest.TestCase):
             evaluated = self.assert_test_eval(source)
             self.assert_test_boolean_object(evaluated, expected)
 
-    def assert_test_null_object(self, obj, expected):
-        result = obj
-        if type(result) is not Null:
-            print(f'object is not Boolean. got={type(result)}')
-        if result.value != expected:
-            print(f'object has wrong value. got={result.value}, want={expected}')
+    def assert_test_null_object(self, obj):
+        if obj != NULL:
+            print(f'object is not NULL. got={obj}')
             return False
         return True
 
