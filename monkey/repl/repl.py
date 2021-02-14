@@ -1,7 +1,7 @@
 from monkey.lexer.lexer import Lexer
 from monkey.parser.parser import Parser
 from monkey.evaluator.evaluator import Evaluator
-
+from monkey.object.environment import Environment
 PROMPT = '>> '
 
 MONKEY_FACE = """
@@ -22,7 +22,7 @@ MONKEY_FACE = """
 def start():
     print('Hello! This is SpeedMonkey programming language!\n')
     print('Feel free to type in commands\n')
-    
+    env = Environment()
     while True:
         try:
             source = input(PROMPT)
@@ -39,7 +39,7 @@ def start():
             print_parser_errors(parser.errors)
 
         evaluator = Evaluator()
-        evaluated = evaluator.eval(program)
+        evaluated = evaluator.eval(node=program, env=env)
         if evaluated is not None:
             print(evaluated.inspect())
 

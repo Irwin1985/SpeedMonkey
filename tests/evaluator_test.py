@@ -3,14 +3,70 @@ import unittest
 from monkey.lexer.lexer import Lexer
 from monkey.parser.parser import Parser
 from monkey.evaluator.evaluator import Evaluator, NULL
+from monkey.object.environment import Environment
 from monkey.object.object import (
     Integer,
     Boolean,
     Error,
+    Function,
 )
 
 
 class TestEvaluador(unittest.TestCase):
+
+    def test_closures(self):
+        source = """
+        let newAdder = fn(x) {
+            fn(y) { x + y};
+        };
+        
+        let addTwo = newAdder(2);
+        addTwo(2);
+        """
+        self.assert_test_integer_object(self.assert_test_eval(source), 4)
+
+    def test_function_application(self):
+        tests = [
+            ["let identity = fn(x) { x; }; identity(5);", 5],
+            ["let identity = fn(x) { return x; }; identity(5);", 5],
+            ["let double = fn(x) { x * 2; }; double(5);", 10],
+            ["let add = fn(x, y) { x + y; }; add(5, 5);", 10],
+            ["let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20],
+            ["fn(x) { x; }(5)", 5],
+        ]
+        for tt in tests:
+            source = tt[0]
+            expected = tt[1]
+            self.assert_test_integer_object(self.assert_test_eval(source), expected)
+
+    def test_function_object(self):
+        source = "fn(x) { x + 2; };"
+
+        fn = self.assert_test_eval(source)
+        if type(fn) is not Function:
+            self.fail(f'object is not Function. got={type(fn)}')
+
+        if len(fn.parameters) != 1:
+            self.fail(f'function has wrong parameters. Parameters={fn.parameters}')
+
+        if fn.parameters[0].string() != "x":
+            self.fail(f"parameters is not 'x'. got={fn.parameters[0]}")
+
+        expected_body = "(x + 2)"
+        if fn.body.string() != expected_body:
+            self.fail(f"body is not {expected_body}. got={fn.body.string()}")
+
+    def test_let_statements(self):
+        tests = [
+            ["let a = 5; a;", 5],
+            ["let a = 5 * 5; a;", 25],
+            ["let a = 5; let b = a; b;", 5],
+            ["let a = 5; let b = a; let c = a + b + 5; c;", 15],
+        ]
+        for tt in tests:
+            source = tt[0]
+            expected = tt[1]
+            self.assert_test_integer_object(self.assert_test_eval(source), expected)
 
     def test_error_handling(self):
         tests = [
@@ -22,6 +78,7 @@ class TestEvaluador(unittest.TestCase):
             ["if (10 > 1) { true + false; }", "unknown operator: Type.BOOLEAN_OBJ + Type.BOOLEAN_OBJ"],
             ["if (10 > 1) { if (10 > 1) { return true + false;} return 1;}",
              "unknown operator: Type.BOOLEAN_OBJ + Type.BOOLEAN_OBJ"],
+            ["foobar", "identifier not found: foobar"],
         ]
         for tt in tests:
             source = tt[0]
@@ -167,8 +224,9 @@ class TestEvaluador(unittest.TestCase):
         parser = Parser(lexer)
         program = parser.parse_program()
         eva = Evaluator()
+        env = Environment()
 
-        return eva.eval(node=program)
+        return eva.eval(node=program, env=env)
 
     def assert_test_integer_object(self, obj, expected):
         result = obj  # Object
