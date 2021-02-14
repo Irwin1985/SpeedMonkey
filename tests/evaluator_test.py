@@ -6,11 +6,33 @@ from monkey.evaluator.evaluator import Evaluator, NULL
 from monkey.object.object import (
     Integer,
     Boolean,
-    Null,
+    Error,
 )
 
 
 class TestEvaluador(unittest.TestCase):
+
+    def test_error_handling(self):
+        tests = [
+            ["5 + true;", "type mismatch: Type.INTEGER_OBJ + Type.BOOLEAN_OBJ"],
+            ["5 + true; 5;", "type mismatch: Type.INTEGER_OBJ + Type.BOOLEAN_OBJ"],
+            ["-true", "unknown operator: -Type.BOOLEAN_OBJ"],
+            ["true + false;", "unknown operator: Type.BOOLEAN_OBJ + Type.BOOLEAN_OBJ"],
+            ["5; true + false; 5", "unknown operator: Type.BOOLEAN_OBJ + Type.BOOLEAN_OBJ"],
+            ["if (10 > 1) { true + false; }", "unknown operator: Type.BOOLEAN_OBJ + Type.BOOLEAN_OBJ"],
+            ["if (10 > 1) { if (10 > 1) { return true + false;} return 1;}",
+             "unknown operator: Type.BOOLEAN_OBJ + Type.BOOLEAN_OBJ"],
+        ]
+        for tt in tests:
+            source = tt[0]
+            expected = tt[1]
+            evaluated = self.assert_test_eval(source)
+            err_obj = evaluated
+            if type(err_obj) is not Error:
+                print(f'no error object returned. got={type(err_obj)}')
+                continue
+            if err_obj.message != expected:
+                print(f"wrong error message. expected='{expected}'. got='{err_obj.message}'")
 
     def test_return_statements(self):
         tests = [

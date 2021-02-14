@@ -16,6 +16,7 @@ from monkey.object.object import (
     Null,
     Type,
     ReturnValue,
+    Error,
 )
 
 TRUE = Boolean(value=True)
@@ -46,11 +47,23 @@ class Evaluator:
         # Prefix and Infix Expressions
         elif type(node) is PrefixExpression:
             right = self.eval(node.right)
+
+            if self.is_error(right):
+                return right
+
             return self.eval_prefix_expression(node.operator, right)
 
         elif type(node) is InfixExpression:
             left = self.eval(node.left)
+
+            if self.is_error(left):
+                return left
+
             right = self.eval(node.right)
+
+            if self.is_error(right):
+                return right
+
             return self.eval_infix_expression(node.operator, left, right)
 
         # Conditional
@@ -63,6 +76,10 @@ class Evaluator:
         # Return statement
         elif type(node) is ReturnStatement:
             val = self.eval(node.return_value)
+
+            if self.is_error(val):
+                return val
+
             return ReturnValue(value=val)
 
         return None
@@ -75,6 +92,8 @@ class Evaluator:
 
             if result is not None and result.type() == Type.RETURN_VALUE_OBJ:
                 return result.value  # Finally program returns the wrapped value of ReturnValue()
+            elif result is not None and result.type() == Type.ERROR_OBJ:
+                return result  # Error does not evaluates nothing. Just print the message.
 
         return result
 
@@ -84,8 +103,10 @@ class Evaluator:
         for statement in block.statements:
             result = self.eval(statement)
 
-            if result is not None and result.type() == Type.RETURN_VALUE_OBJ:
-                return result
+            if result is not None:
+                rt = result.type()
+                if rt in (Type.RETURN_VALUE_OBJ, Type.ERROR_OBJ):
+                    return result
 
         return result
 
@@ -95,7 +116,7 @@ class Evaluator:
         elif operator == "-":
             return self.eval_minus_prefix_operator_expression(right)
         else:
-            return NULL
+            return self.new_error(f'unknown operator: {operator} {right.type()}')
 
     def eval_infix_expression(self, operator, left, right):
         if left.type() == Type.INTEGER_OBJ and right.type() == Type.INTEGER_OBJ:
@@ -104,11 +125,17 @@ class Evaluator:
             return self.native_bool_to_boolean_object(left == right)
         elif operator == "!=":
             return self.native_bool_to_boolean_object(left != right)
+        elif left.type() != right.type():
+            return self.new_error(f'type mismatch: {left.type()} {operator} {right.type()}')
         else:
-            return NULL
+            return self.new_error(f'unknown operator: {left.type()} {operator} {right.type()}')
 
     def eval_if_expression(self, ie):
         condition = self.eval(ie.condition)
+
+        if self.is_error(condition):
+            return condition
+
         if self.is_truthy(condition):
             return self.eval(ie.consequence)
         elif ie.alternative is not None:
@@ -147,7 +174,7 @@ class Evaluator:
         elif operator == '!=':
             return self.native_bool_to_boolean_object(left_val != right_val)
         else:
-            return NULL
+            return self.new_error(f'type mismatch: {left.type()} {operator} {right.type()}')
 
     def native_bool_to_boolean_object(self, value):
         return TRUE if value else FALSE
@@ -164,7 +191,15 @@ class Evaluator:
 
     def eval_minus_prefix_operator_expression(self, right):
         if right.type() != Type.INTEGER_OBJ:
-            return NULL
+            return self.new_error(f'unknown operator: -{right.type()}')
         value = right.value
         return Integer(value=-value)
+
+    def new_error(self, message):
+        return Error(message=message)
+
+    def is_error(self, obj):
+        if obj is not None:
+            return obj.type() == Type.ERROR_OBJ
+        return False
 

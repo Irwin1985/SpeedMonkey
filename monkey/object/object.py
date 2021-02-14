@@ -6,6 +6,8 @@ class Type(Enum):
     BOOLEAN_OBJ = "BOOLEAN",
     NULL_OBJ = "NULL",
     RETURN_VALUE_OBJ = "RETURN_VALUE"
+    ERROR_OBJ = "ERROR"
+
 
 class ObjectType:
     pass
@@ -61,6 +63,17 @@ class ReturnValue(Object):
 
     def type(self):
         return Type.RETURN_VALUE_OBJ
+
+
+class Error(Object):
+    def __init__(self, message):
+        self.message = message
+
+    def inspect(self):
+        return "ERROR: " + self.message
+
+    def type(self):
+        return Type.ERROR_OBJ
 
 
 
