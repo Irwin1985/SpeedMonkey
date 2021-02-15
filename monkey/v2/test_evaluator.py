@@ -1,25 +1,16 @@
 import unittest
 
-from monkey.lexer.lexer import Lexer
-from monkey.parser.cfg_parser import Parser
-from monkey.evaluator.evaluator import Evaluator, NULL
-from monkey.object.environment import Environment
-from monkey.object.object import (
-    Integer,
-    Boolean,
-    Error,
-    Function,
-)
+from monkey.v2.main import *
 
 
-class TestEvaluador(unittest.TestCase):
+class TestEvaluator(unittest.TestCase):
 
     def test_closures(self):
         source = """
         let newAdder = fn(x) {
             fn(y) { x + y};
         };
-        
+
         let addTwo = newAdder(2);
         addTwo(2);
         """
@@ -222,11 +213,11 @@ class TestEvaluador(unittest.TestCase):
     def assert_test_eval(self, source):
         lexer = Lexer(source)
         parser = Parser(lexer)
-        program = parser.parse_program()
-        eva = Evaluator()
+        program = parser.parse()
+        visitor = NodeVisitor()
         env = Environment()
 
-        return eva.eval(node=program, env=env)
+        return visitor.visit(node=program, env=env)
 
     def assert_test_integer_object(self, obj, expected):
         result = obj  # Object

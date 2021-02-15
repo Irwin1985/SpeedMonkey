@@ -1,4 +1,4 @@
-from monkey.parser.parser import Parser
+from monkey.parser.pratt_parser import Parser
 from monkey.lexer.lexer import Lexer
 
 from enum import Enum

@@ -1,5 +1,5 @@
 from monkey.lexer.lexer import Lexer
-from monkey.parser.parser import Parser
+from monkey.parser.cfg_parser import Parser
 from monkey.evaluator.evaluator import Evaluator
 from monkey.object.environment import Environment
 PROMPT = '>> '

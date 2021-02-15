@@ -96,6 +96,18 @@ class Parser:
 
         return program
 
+    def parse_block_statement(self):
+        block = BlockStatement(token=self.cur_token)
+        self.next_token()  # advance the LBRACE token
+
+        while not self.cur_token_is(TokenType.RBRACE) and not self.cur_token_is(TokenType.EOF):
+            stmt = self.parse_statement()
+            if stmt is not None:
+                block.statements.append(stmt)
+            self.next_token()
+
+        return block
+
     def parse_statement(self):
         if self.cur_token.type == TokenType.LET:
             return self.parse_let_statement()
@@ -229,18 +241,6 @@ class Parser:
             expression.alternative = self.parse_block_statement()
 
         return expression
-
-    def parse_block_statement(self):
-        block = BlockStatement(token=self.cur_token)
-        self.next_token()  # advance the LBRACE token
-
-        while not self.cur_token_is(TokenType.RBRACE) and not self.cur_token_is(TokenType.EOF):
-            stmt = self.parse_statement()
-            if stmt is not None:
-                block.statements.append(stmt)
-            self.next_token()
-
-        return block
 
     def parse_identifier(self):
         return Identifier(token=self.cur_token, value=self.cur_token.literal)

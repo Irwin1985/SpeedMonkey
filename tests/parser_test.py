@@ -1,10 +1,7 @@
 import unittest
 
 from monkey.lexer.lexer import Lexer
-from monkey.parser.parser import Parser
-from monkey.ast.ast import (
-    ExpressionStatement,
-)
+from monkey.parser.cfg_parser import Parser
 
 
 class TestParser(unittest.TestCase):
